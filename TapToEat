@@ -218,3 +218,121 @@ const styles = StyleSheet.create({
         borderRadius: 5,
     },
 });
+# Payment 
+const express = require('express');
+const Stripe = require('stripe');
+const router = express.Router();
+
+// Stripe Secret Key
+const stripe = Stripe('your_secret_key_here');
+
+// Create Payment Intent
+router.post('/create-payment', async (req, res) => {
+    const { amount, currency } = req.body;
+    try {
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount,
+            currency,
+            payment_method_types: ['card'],
+        });
+        res.status(200).json({ clientSecret: paymentIntent.client_secret });
+    } catch (error) {
+        console.error('Error creating payment intent:', error);
+        res.status(500).send('Payment failed');
+    }
+});
+
+module.exports = router;const paymentRoutes = require('./routes/paymentRoutes');
+app.use('/api/payment', paymentRoutes);import React from 'react';
+import { StripeProvider } from '@stripe/stripe-react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import PaymentScreen from './screens/PaymentScreen';
+
+const Stack = createStackNavigator();
+
+export default function App() {
+    return (
+        <StripeProvider publishableKey="your_publishable_key_here">
+            <NavigationContainer>
+                <Stack.Navigator initialRouteName="Payment">
+                    <Stack.Screen name="Payment" component={PaymentScreen} />
+                </Stack.Navigator>
+            </NavigationContainer>
+        </StripeProvider>
+    );
+}import React, { useState } from 'react';
+import { View, Button, TextInput, StyleSheet, Alert } from 'react-native';
+import { CardField, useStripe } from '@stripe/stripe-react-native';
+
+export default function PaymentScreen() {
+    const [amount, setAmount] = useState('');
+    const { confirmPayment } = useStripe();
+
+    const handlePayment = async () => {
+        try {
+            // Create a payment intent on the server
+            const response = await fetch('http://localhost:5000/api/payment/create-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: parseInt(amount) * 100, currency: 'usd' }),
+            });
+            const { clientSecret } = await response.json();
+
+            // Confirm the payment
+            const { error } = await confirmPayment(clientSecret, {
+                paymentMethodType: 'Card',
+                billingDetails: {
+                    email: 'customer@example.com',
+                },
+            });
+
+            if (error) {
+                Alert.alert('Payment failed', error.message);
+            } else {
+                Alert.alert('Payment successful', 'Your payment was successful!');
+            }
+        } catch (error) {
+            console.error('Payment error:', error);
+            Alert.alert('Payment error', 'Something went wrong. Please try again.');
+        }
+    };
+
+    return (
+        <View style={styles.container}>
+            <TextInput
+                style={styles.input}
+                placeholder="Enter amount"
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="numeric"
+            />
+            <CardField
+                postalCodeEnabled={true}
+                placeholder={{ number: '4242 4242 4242 4242' }}
+                cardStyle={{ backgroundColor: '#FFFFFF' }}
+                style={styles.cardField}
+            />
+            <Button title="Pay Now" onPress={handlePayment} />
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        padding: 20,
+    },
+    input: {
+        marginBottom: 20,
+        padding: 10,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 5,
+    },
+    cardField: {
+        height: 50,
+        marginVertical: 30,
+    },
+});
