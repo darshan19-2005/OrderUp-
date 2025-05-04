@@ -31,4 +31,13 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
+#Step 2: Database Models
+const mongoose = require('mongoose');
 
+const UserSchema = new mongoose.Schema({
+    name: String,
+    email: { type: String, unique: true },
+    password: String,
+});
+
+module.exports = mongoose.model('User', UserSchema);
